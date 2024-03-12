@@ -1,0 +1,20 @@
+
+%% about bluriness, this extension follows An introduction to variational autoencoders
+%% but it is quite obscure and not very formal, so we wish to discard it
+
+To introduce the issue of blurriness, we first need to provide an additional perspective on the ELBO and Marginal Likelihood proposed in \cite{VAEIntro}. Suppose we have the i.i.d. dataset \(\mathcal{D}\) of size \(N\), maximum likelihood is
+
+\begin{equation}
+    \log p_\theta(\mathcal{D}) = \frac{1}{N}\sum_{\boldx \in \mathcal{D}} \log p_\theta(\boldx) = \mathbb{E}_{q_{\mathcal{D}}}(\boldx)\left[\log p_\theta(\boldx)\right]
+\end{equation}
+
+where \(q_{\mathcal{D}}(\boldx)\) is the empirical data distribution. Kullback Leibler divergence between data and model distributions is then
+
+\begin{align}
+    D_{KL}\left(q_\mathcal{D}(\boldx) \parallel p_\theta(\boldx)\right) 
+    &= -\mathbb{E}_{q_\mathcal{D}(\boldx)}\left[\log p_\theta(\boldx)\right] + \mathbb{E}_{q_{\mathcal{D}}(\boldx)}\left[\log q_{\mathcal{D}}(\boldx)\right] \nonumber \\
+    &= -\log p_\theta(\mathcal{D}) + c
+\end{align}
+
+where \(c\) is a constant representing the negative log entropy of \(q_\mathcal{D}(\boldx)\).
+

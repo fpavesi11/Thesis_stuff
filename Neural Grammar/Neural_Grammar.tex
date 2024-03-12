@@ -1,0 +1,70 @@
+\documentclass[12pt]{article}
+
+\usepackage{../mystyle}
+
+\title{Neural Grammar}
+
+\author{Federico Pavesi}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+For sake of clarity, we shall define two fundamental concepts which are at the base of the reasoning we 
+are doing. When we say `training' we refer to the process of training a neural network, which shall not
+be confused with `learning', which instead is referred to the procedure of learning latent representations
+of neural network architectures. 
+
+A Neural Network can be seen as a complex structure representing the flow of input data through
+
+In the context of Neural Architecture Search (NAS), one approach to deal with the search over the 
+space of Neural Architectures is to define context-free grammar (ADD REFERENCES), such that we can define 
+each neural architecture by its unique codification into the grammar space. In particular, if we define a 
+network with an architecture $\omega \in \mathcal{A}$ where $\mathcal{A}$ is the class of all `feasible' 
+architectures, we can use the map $G: \mathcal{A} \mapsto \mathcal{G}$, with $\mathcal{G}$ is the space
+of codes encoded by the grammar, to pass from a neural architecture to a grammar code. 
+
+\begin{equation}
+    \nu = G(\omega)
+\end{equation}
+
+Where $\nu$ is the grammar code associated to $\omega$.
+This map is bijective, which is fundamental to allow to go back and forth from the space of architectures, 
+in which we can train neural networks but where it is hard to learn, to the space of grammar codes where we have 
+the opposite situation. 
+
+\begin{equation}
+    \omega = G^{-1}(\nu)
+\end{equation}
+
+
+\section{Neural Grammar} 
+The grammar we implemented is not particularly complex but it has the downturn we are not able to account 
+for all possible neural architectures. We refer the reader to 
+
+
+\section{Appendix A: Neural Grammar}
+\subsection{Appendix A.1: Linear Grammar}
+
+We shall here define the pseudocode for encoding linear neural networks (also known as dense networks or 
+Multi Layer Perceptrons). Notice we define with \( L \subset \mathbb{N} \) the length of the neural 
+networks (i.e., the number of subsequent blocks) which, of course, should be finite. Also, if we want 
+to refer to a specific block in the architecture, we write \( \omega[i] \) with \( i \in L \).
+
+\begin{algorithm}
+    \caption{Encoding Linear Neural Networks}\label{alg:encoding}
+    \begin{algorithmic}[1]
+        \Input MLP \( \omega \) in \( \mathcal{A} \) 
+        \Output Grammar code \( \nu \) associated with \( \omega \) 
+        \For{\( i \) in \( L \)}
+            \If{\( \omega[i] \) is a linear module and \( i = 1 \)} \Comment{The first linear layer}
+            \EndIf
+        \EndFor
+    \end{algorithmic}
+\end{algorithm}
+
+\end{document}
