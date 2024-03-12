@@ -53,30 +53,30 @@ Usually, in the context of variational autoencoders, the interest is not on an u
 
 \begin{equation}
     \label{eqn:ELBO}
-    \mathcal{F}(\boldx) = -D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right]
+    \mathcal{F}(\boldx) = -D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] + \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz) \right]
 \end{equation}
 
-Maximizing \(\mathcal{F}(\boldx)\), even with parametrization, it's a complex task and rarely there exist tractable closed form solutions. A promising approach is represented by optimization via Stochastic Gradient Descent (SGD).
+Maximizing \(\mathcal{F}(\boldx)\), even with parametrization, it's a complex task and rarely there exist tractable closed form solutions. A promising approach is represented by optimization via Stochastic Gradient Descent (SGD) of the negative free energy.
 
 
 In variational auto encoders, the idea is to parametrize \(q_{\phi}( \boldz| \boldx)\) via a neural network, called the Encoder and, similarly, to parametrize \(p_{\theta}( \boldx| \boldz)\) via another neural network called the Decoder. Notice with this formulation parameters \(\phi, \theta\) are shared among observations \(\boldx \in  X\) \cite{VAEIntro}. In the original formulation in \cite{kingma2022autoencoding}, the prior \(p( \boldz)\) is chosen to be an isotropic standard gaussian \(\mathcal{N}(\textbf{0}, \textbf{I})\). 
 
 
-Minimizing \(\mathcal{F}( \boldx)\) using SGD is not as straightforward as it might seem. Unfortunately, the individual datapoint gradient \(\nabla_{\phi, \theta}\mathcal{F}(\boldx)\) is, in general, intractable\cite{VAEIntro}. While the gradient w.r.t. Decoder parameters \(\theta\) is relatively simple to estimate
+Minimizing \(-\mathcal{F}( \boldx)\) using SGD is not as straightforward as it might seem. Unfortunately, the individual datapoint gradient \(\nabla_{\phi, \theta}(-\mathcal{F}(\boldx))\) is, in general, intractable\cite{VAEIntro}. While the gradient w.r.t. Decoder parameters \(\theta\) is relatively simple to estimate
 
 \begin{align}
-    \nabla_{\theta}\mathcal{F}(\boldx) &= \nabla_{\theta} \left( D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right] \right) \nonumber \\
-    &= \nabla_{\theta} \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\log p_\theta (\boldx, \boldz) - \log q_\phi (\boldz|\boldx) \right] \nonumber \\
-    &= \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\nabla_{\theta}\log p_\theta (\boldx, \boldz) - \log q_\phi (\boldz|\boldx) \right] 
+    \nabla_{\theta}(-\mathcal{F}(\boldx)) &= \nabla_{\theta} \left( D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz) \right] \right) \nonumber \\
+    &= \nabla_{\theta} \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\log q_\phi (\boldz|\boldx) -\log p(\boldz) - \log p_\theta (\boldx | \boldz)\right] \nonumber \\
+    &= \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\log q_\phi (\boldz|\boldx) -\log p(\boldz) - \nabla_{\theta}\log p_\theta (\boldx | \boldz) \right] 
 \end{align}
 
 We can switch integration and derivation because the expectation does not depend on \(\theta\), this quantity can be simply estimated via Monte Carlo approximation using a random sample from \(q_\phi (\boldz|\boldx)\). Instead, this passage in general cannot be done for the gradient w.r.t. \(\phi\)
 
 \begin{align}
     \label{eqn:grad_phi_ELBO}
-    \nabla_{\phi}\mathcal{F}(\boldx) &= \nabla_{\phi} \left( D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right] \right) \nonumber \\
-    &= \nabla_{\phi} \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\log p_\theta (\boldx, \boldz) - \log q_\phi (\boldz|\boldx) \right] \nonumber \\
-    &\neq \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\nabla_{\phi} \left( \log p_\theta (\boldx, \boldz) - \log q_\phi (\boldz|\boldx) \right) \right] 
+    \nabla_{\phi}(-\mathcal{F}(\boldx)) &= \nabla_{\phi} \left( D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz) \right] \right) \nonumber \\
+    &= \nabla_{\phi} \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\log q_\phi (\boldz|\boldx) -\log p(\boldz) - \log p_\theta (\boldx | \boldz)\right] \nonumber \\
+    &\neq \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\nabla_{\phi} \log q_\phi (\boldz|\boldx) -\log p(\boldz) - \log p_\theta (\boldx | \boldz) \right] 
 \end{align}
 
 This limitation can be solved in the case we have continuous latent variable via a change of variable called the \textit{reparametrization trick}.
@@ -99,11 +99,12 @@ It is possible to rewrite expectation in terms of \(\boldeps\) \cite{kingma2022a
 For any well defined function \(f\) where \(\boldz\) is in its reparametrized form. We are now in the situation to estimate the gradient for \eqref{eqn:grad_phi_ELBO} as
 
 \begin{align}
-    \nabla_{\phi}\mathcal{F}(\boldx) &= \nabla_{\phi} \left( D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right] \right) \nonumber \\
-    &= \nabla_{\phi} \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\log p_\theta (\boldx, \boldz) - \log q_\phi (\boldz|\boldx) \right] \nonumber \\
-    &= \nabla_{\phi} \mathbb{E}_{p(\boldeps)} \left[\log p_\theta (\boldx, \boldz) - \log q_\phi (\boldz|\boldx) \right] \nonumber \\
-    &= \mathbb{E}_{p(\boldeps)} \left[\nabla_{\phi} \left( \log p_\theta (\boldx, \boldz) - \log q_\phi (\boldz|\boldx) \right) \right] 
+    \nabla_{\phi}(-\mathcal{F}(\boldx)) &= \nabla_{\phi} \left( D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right] \right) \nonumber \\
+    &= \nabla_{\phi} \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[\log q_\phi (\boldz|\boldx) -\log p(\boldz) - \log p_\theta (\boldx | \boldz)\right] \nonumber \\
+    &= \nabla_{\phi} \mathbb{E}_{p(\boldeps)} \left[\log q_\phi (\boldz|\boldx) -\log p(\boldz) - \log p_\theta (\boldx | \boldz)\right] \nonumber \\
+    &= \mathbb{E}_{p(\boldeps)} \left[\nabla_{\phi} \log q_\phi (\boldz|\boldx) -\log p(\boldz) - \log p_\theta (\boldx | \boldz) \right] 
 \end{align}
+
 
 which can be easily estimated via Monte Carlo approximation using a random sample from \(q_\phi (\boldz|\boldx)\) as for \(\theta\). Henceforth, for simplicity, we shall keep the notation \(q_{\phi}(\boldz|\boldx)\), keeping in mind it is subjected to reparametrization (which anyway, does not affect this quantity).
 
@@ -115,7 +116,25 @@ In some cases in which we know the datapoint posterior distribution (for example
     \log q_\phi (\boldz|\boldx) = \log p(\boldeps) - \log \left| \det \left( \frac{\partial\boldz}{\partial\boldeps}\right) \right|
 \end{equation}
 
-Where the right hand side of term is absolute value of logarithm of the determinant of the derivative of \(\boldz=g(\boldeps)\) w.r.t \(\boldeps\). Equation \eqref{eqn:reparametrized_density} will be especially important when we will define flow transformations. 
+Where the right hand side of term is absolute value of logarithm of the determinant of the derivative of \(\boldz=g(\boldeps)\) w.r.t \(\boldeps\). 
+For clarity, we can write the objective estimation when we can evaluate the Kullback-Leibler divergence in closed form as
+
+\begin{equation}
+    \label{eqn:ELBO_closed_form}
+    \tilde{\mathcal{F}}(\boldx) = -D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] + \frac{1}{M}\sum_{m=1}^M \log p_{\theta}(\boldx|\boldz^{(m)})
+\end{equation}
+
+While, in the general case, we can write
+
+\begin{equation}
+    \label{eqn:ELBO_general}
+    \tilde{\mathcal{F}}(\boldx) = \frac{1}{M}\sum_{m=1}^M \log p(\boldz^{(m)}) - \log q_{\phi}(\boldz^{(m)}|\boldx) + \log p_{\theta}(\boldx|\boldz^{(m)}) 
+\end{equation}
+
+Where \(M\) is the number of Monte Carlo samples used to estimate the expectation. It is understood that, under posterior reparametrization, \(\boldz^{(m)} = g(\boldeps^{(m)})\).
+
+
+Equation \eqref{eqn:reparametrized_density} will be especially important when we will define flow transformations. 
 
 
 At this point, it is simple to optimize \eqref{eqn:ELBO} using SGD. From a practical perspective, it is to notice when we reach the optimal parameter configuration \(\hat{\phi}, \hat{\theta}\) we actually obtained three important goals. First, we are maximizing the likelihood under a latent variable model, using an approximation of the posterior. Second, we can encode observations from their original space \(\mathcal{X}\), to the latent space \(\mathcal{Z}\) which, in most cases, it is less complex and has desirable properties. A good example is \(\mathcal{X}\) as the space of images of handwritten digits and \(\mathcal{Z} = \mathbb{R}^d\) \cite{kingma2022autoencoding}. Last, if \(D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right]\) is sufficiently small, it means the posterior is very close to the prior \(p(\boldz)\), such that a we can directly sample from it and the decoder will be able to reconstruct the associated \(\boldx\). This at the end allows to generate any possibly new point belonging to the data distribution. 
@@ -127,7 +146,7 @@ This approach, despite all its advantages, does not come without issues. In part
 %  OPTIMIZATION ISSUES
 Optimization issues have been evidentiated in \cite{VAEIntro}\cite{bowman-etal-2015-large}\cite{Snderby2016LadderVA} and are mainly related to the posterior. What happens is, at the beginning of neural networks training, \(\log p (\boldx|\boldz)\) is relatively weak, making the state \(q(\boldz|\boldx) \approx p(\boldz)\) attractive. This is an undesirable equilibrium because \(\log p (\boldx|\boldz)\), in general remains weak and it is difficult to escape from this area. The alternative proposed by \cite{bowman-etal-2015-large}\cite{Snderby2016LadderVA} is to assign a weight \(\beta\) to \(D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right]\) and slowly anneal it from 0 to 1 over training epochs. Free energy becomes
 \begin{equation}
-    \mathcal{F}(\boldx) = \beta D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right]
+    -\mathcal{F}(\boldx) = \beta D_{KL}\left[ q_{\phi}(\boldz|\boldx) \parallel p(\boldz) \right] - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right]
 \end{equation}
 
 It is to notice \cite{Higgins2016betaVAELB} use a similar approach, but they find that a proper \(\beta > 1\) allows to formulate the problem as constrained optimization, which balances latent channel capacity and independence constraints with reconstruction accuracy. 
@@ -136,7 +155,7 @@ It is to notice \cite{Higgins2016betaVAELB} use a similar approach, but they fin
 An alternative proposed in \cite{Kingma2016ImprovedVI} is the \textit{free bits} approach, which ensures, on average, a minimum number of bits of information is encoded per latent variable or per group of latent variables \cite{VAEIntro}. This is done by dividing latent dimensions in \(K\) disjoint groups \(\{\boldz_1,\ldots,\boldz_K: \cup_{i=1}^K\boldz_i = \boldz\}\) and each group should encode a minimum of \(\lambda\) information for each \(j=1,2,\ldots, K\)
 
 \begin{equation}
-    \mathcal{F}(\boldx) = \sum_{j=1}^K \max(\lambda, D_{KL}\left[ q_{\phi}(\boldz_i|\boldx) \parallel p(\boldz_i) \right]) - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right]
+    -\mathcal{F}(\boldx) = \sum_{j=1}^K \max(\lambda, D_{KL}\left[ q_{\phi}(\boldz_i|\boldx) \parallel p(\boldz_i) \right]) - \mathbb{E}_{q_{\phi}(\boldz|\boldx)} \left[ \log p_{\theta}(\boldx|\boldz)p(\boldz) \right]
 \end{equation}
 
 
@@ -333,6 +352,7 @@ For which the density of the posterior under IAF is
 
 In our implementation, we follow the suggestion of \cite{Kingma2016ImprovedVI} to use an autoregressive neural network similar to MADE \cite{pmlr-v37-germain15} but with some slight modifications for numerical stability.
 Moreover, it is to notice we let the encoder estimate \(\boldsymbol{\mu}\) and \(\boldsymbol{\sigma}\) as in standard VAE, but an additional hidden state \(\mathbf{h}\) is also estimated and plugged into each autoregressive transform. 
+
 
 \bibliographystyle{plain}
 \bibliography{ref}
