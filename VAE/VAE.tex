@@ -28,18 +28,10 @@ Another fundamental quantity we need for this process again comes from Variation
     \label{eqn:log_likelihood}
     \log \mathcal{L}(\boldx) &= \log p(\boldx) = \log \left( \int p(\boldx|\boldz)p(\boldz)d\boldz \right) \nonumber \\
     &= \log \left( \int \frac{q (\boldz)}{q (\boldz)} p(\boldx|\boldz)p(\boldz)d\boldz \right) \nonumber \\
-    &= D_{KL}\left[ q (\boldz) \parallel p(\boldz|\boldx) \right] + \mathcal{F}(\boldx) 
+    &\geq -D_{KL}(q(\boldz) || p(\boldz)) + \mathbb{E}_{q(\boldz)}[\log p(\boldx|\boldz)] \\ &= \mathcal{F}(\boldx) \nonumber
 \end{align}
 
-where
-
-\begin{align}
-    \label{eqn:ELBO}
-    \mathcal{F}(\boldx) &= \mathbb{E}_{q } \left[ -\log q (\boldz) + \log p(\boldx,\boldz)\right] \nonumber \\
-    &= -D_{KL}\left[ q (\boldz) \parallel p(\boldz) \right] + \mathbb{E}_{q } \left[ \log p(\boldx|\boldz)\right]
-\end{align}
-
-is the ELBO, also called Free Energy \cite{pmlr-v32-rezende14}.
+where $\mathcal{F}(\boldx)$ is the ELBO, also called Free Energy \cite{pmlr-v32-rezende14} and it is obtained by Jensen inequality.
 Because \(D_{KL}\left[ q(\boldz) \parallel p(\boldz|\boldx) \right]\) is always non-negative, we can write
 
 \begin{align}
@@ -164,60 +156,63 @@ This has still to be written.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Normalizing flows}
-A limitation of the classic approach of variational autoencoders has been evidentiated in \cite{Mohamed2015VariationalIM}. In particular, it is easily understood that, because most of the time the posterior approximation \(q_\phi(\boldz|\boldx)\) has a simple form (for example Gaussians), the distance from the true posterior is not negligible. The solution proposed by \cite{Mohamed2015VariationalIM} is to take advantage of normalizing flows.
+A limitation of the classic approach of variational inference in general is the ability to get to a close approximation of the posterior. In particular, it is easily understood that, because most of the time the posterior approximation \(q_\phi(\boldz|\boldx)\) has a simple form (for example Gaussians), the distance from the true posterior is not negligible. The solution of normalizing flows is a powerful approach and it has been deeply explored for sampling and density estimation \cite{NFReview}, \cite{NFDensReview}. Here we shall propose a concise review with a perspective on the implementation in VAE.
 
-
-Given a random variable \(\boldz\) and an invertible smooth mapping \(f:\mathbb{R}^d \mapsto \mathbb{R}^d\), clearly \(f^{-1} \circ f(\boldz) = \boldz\). If \(\boldz\) has distribution \(q(\boldz)\), we can write
+Let's start from a general definition. If we define two measurable spaces $(\mathcal{X}, \mathfrak{A})$ and $(\mathcal{Z}, \mathfrak{F})$ and $g: \mathcal{Z} \rightarrow \mathcal{X}$ as a diffeomorphism between them, if moreover $\mu$ is a measure on $\mathcal{Z}$, it is possible to define a measure on $\mathcal{X}$ by 
 
 \begin{align}
-    q(f(\boldz)) = q(\boldz) \left| \det \frac{\partial f^{-1}}{\partial f(\boldz)} \right| = q(\boldz) \left| \det \frac{\partial f}{\partial \boldz}\right|^{-1}
+    \label{eq:pushforward_measure}
+    \nu(A) &= g_{\#}\mu(A) \nonumber \\
+    &= \mu(g^{-1}(A))
 \end{align}
 
-This fact allows to build arbitrary complex densities composing a sequence of maps \((f_k)_{k \in I}\) for \(I=1,2,\ldots,K\) and \(K\) being the flow length. 
+For all $A \in \mathfrak{A}$ which is called the pushforward measure. As noted by \cite{NFReview} this definition allows to build an interesting connection between normalizing flows and Optimal Transport \cite{villani2008optimal}. Let's now focus on probability measures $\mathcal{P} \in \mathcal{M}_+^{1}$. Suppose $\mathbf{X}$ is a random variable in $(\mathcal{X}, \mathfrak{A})$ (observed data) and $\mathbf{Z}$ random variable in $(\mathcal{Z}, \mathfrak{F})$ (latent variable, usually defined as `simpler'). On the simpler space we can define measures absolutely continuous w.r.t. the Lebesgue measure which admits density, denoted as $q(\boldz)$. Taking advantage of (\ref{eq:pushforward_measure}), we can define a density on the space of observed data, which is the pushforward measure of $q(\boldz)$ through a diffeomorphism $g: \mathcal{Z} \rightarrow \mathcal{X}$, denoted as $p(\boldx)$
 
-\begin{equation}
-    \boldz_K = f_K \circ f_{K-1} \circ \ldots \circ f_1(\boldz_0)
-\end{equation}
+\begin{align} 
+    p(\boldx) &= q(g^{-1}(\boldx)) \left| \det \frac{\partial g^{-1}}{\partial \boldx} \right| \nonumber \\
+    &= q(\boldz) \left| \det \frac{\partial g}{\partial \boldz} \right|^{-1}
+\end{align}
 
-and the density of \(\boldz_K\) can be easily recovered as
+Notice because $g$ is a diffeomorphism, $p(\boldx)$ is also absolutely continuous w.r.t. the Lebesgue measure. Moreover, we can easily employ a combination of diffeomorphisms, it is possible to define a flow of densities
 
-\begin{equation}
-    q_K(\boldz_K) = q_0(\boldz_0)\prod_{k=1}^K\left| \det \frac{\partial f_K}{\partial \boldz_{k-1}}\right|^{-1}
-\end{equation}
+\begin{align}
+    \boldx^{(i)} &= g_K \circ g_{K-1} \circ \dots \circ g_1(\boldz_0^{(i)}) 
+\end{align}
 
-so
+which inverse is 
 
-\begin{equation}
-    \label{eqn:log_flow_den}
-    \log q_K(\boldz_K) = \log q_0(\boldz_0) - \sum_{k=1}^K \log \left| \det \frac{\partial f_K}{\partial \boldz_{k-1}}\right|
-\end{equation}
+\begin{align}
+    \boldz^{(i)} &= g^{-1}_1 \circ g^{-1}_{2} \circ \dots \circ g^{-1}_K(\boldx^{(i)})
+\end{align}
 
-Moreover, because of the law of the unconsciuos statistician, any expectation under \(q_K(\boldz_K)\) of an arbitrary function of \(\boldz_K\), \(h(\boldz_K)\), can be recovered as an expectation over the original density
+Sometimes we will refer to the direct flow as $G := g_K \circ g_{K-1} \circ \dots \circ g_1(.)$ and to the inverse flow as $G^{-1}$. 
 
+What is interesting is that, because of the change of variable rule, we can compute the density of the transformed distribution following the generative direction 
 
-\begin{equation}
-    \mathbb{E}_{q_K}\left[h(\boldz_K)\right] = \mathbb{E}_{q_0}\left[h(f_K \circ f_{K-1} \circ \ldots \circ f_1(\boldz_0))\right]
-\end{equation}
+\begin{align}
+    \log p(\boldx) &= \log q(\boldz_0) - \sum_{k=1}^K \log \left| \det \frac{\partial g_k}{\partial \boldz_{k-1}} \right|
+\end{align}
 
-We can make an interesting connection between equation \eqref{eqn:log_flow_den} and the reparametrized density \eqref{eqn:reparametrized_density} if we notice that what in the latter equation was defined as \(g\) can be viewed as a map belonging to a flow (for simplicity, the first map \(f_0\)), so under this fashion we can write the flow assigning \(\boldeps = \boldz_0\) and \(q_{\boldeps} = q_0\)
+as well as in the normalizing direction
 
-\begin{equation}
-    \log q_K(\boldz_K) = \log q_{\boldeps}(\boldeps) - \sum_{k=1}^K \log \left| \det \frac{\partial f_K}{\partial \boldz_{k-1}}\right|
-\end{equation}
-
-This intuition is at the base of the implementation of normalizing flows in variational autoencoders. 
+\begin{align}
+    \log p(\boldx) &= \log q(g^{-1}(\boldx)) + \sum_{k=1}^K \log \left| \det \frac{\partial g_k^{-1}}{\partial \boldx} \right|
+\end{align}
 
 
-An intuition by \cite{Mohamed2015VariationalIM}, which was explored in depth by \cite{NEURIPS2018_69386f6b}, is that if we suppose \(K \rightarrow \infty\), we obtain an infinitesimal flow. In other words, we see the case with \(K\) finite as an Euler discretization of a partial differential equation flow \cite{NEURIPS2018_69386f6b} with \(K\) steps. The partial differential equation can be written as 
+Another very interesting property is what is called the law of the unconsciuos statistician (LOTUS), which states that we can compute the expectation of $\boldz_K$ without explicitly knowning its distribution
 
-\begin{equation}
-    \frac{\partial}{\partial t} q_t(\boldz) = \mathcal{T}_t\left[q_t(\boldz)\right]
-\end{equation}
+\begin{align}
+    \mathbb{E}_{q(\boldz_K)}[h(\boldz_K)] &= \mathbb{E}_{q(\boldz_0)}[h(g_K \circ g_{K-1} \circ \dots \circ g_1(\boldz_0))]
+\end{align}
 
-where \(\mathcal{T}\) describes continuous-time dynamics \cite{Mohamed2015VariationalIM} and \(t\) has been used instead of \(k\) for notation consistency with differential equations framework. 
+which does not require computation of the log-determinant of the Jacobian when $h$ does not depend on $q_K$.
 
-EXPAND?
 
+The application to variational inference is straightforward, if we resort the formulation of the ELBO in \eqref{eqn:log_likelihood}, we can easily see that any flow $G$ can be used in principle to reparametrize $q(z)$. One can view this approach as a `complex' reparametrization trick. 
+
+
+While implementing such approach in a VAE, we must acknowledge we are losing some advantages of normalizing flows. Because we are estimating the posterior, which is of course conditioned on $\boldx$, $q(\boldx)$, we loose the ability to unconditionally sample from the posterior in theory, i.e. we cannot sample from $\boldz_0$ and go through the flow until $\boldz_K$. This limitation is mitigated when the Kullback-Leibler divergence is relatively small. In this case, we can sample from the prior knowing most of the mass of the posterior is concentrated around the prior. Notice this consideration is valid for any VAE, the point made here is that reparametrizing a VAE with a normalizing flow `weakens' the flow itself.  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Application}
 
@@ -353,7 +348,21 @@ For which the density of the posterior under IAF is
 In our implementation, we follow the suggestion of \cite{Kingma2016ImprovedVI} to use an autoregressive neural network similar to MADE \cite{pmlr-v37-germain15} but with some slight modifications for numerical stability.
 Moreover, it is to notice we let the encoder estimate \(\boldsymbol{\mu}\) and \(\boldsymbol{\sigma}\) as in standard VAE, but an additional hidden state \(\mathbf{h}\) is also estimated and plugged into each autoregressive transform. 
 
-\section{Results}
+\section{Some types of finite flows}
+
+Historically, the first type of flow introduced was the planar flow by \cite{Mohamed2015VariationalIM}, which is a simple way to introduce a sequence of invertible transformations to the latent space. The flow is defined as
+
+\begin{align}
+    f(\boldz) = \boldz + \mathbf{u}h(\mathbf{w}^T\boldz + b)
+\end{align}
+
+with \(\mathbf{u}\), \(\mathbf{w}\) and \(b\) being learnable parameters and \(h\) is a smooth non-linearity. The determinant of the Jacobian of this transformation is
+
+\begin{align}
+    \left| \det \frac{\partial f}{\partial \boldz} \right| = \left| 1 + \mathbf{u}^T h'(\mathbf{w}^T\boldz + b)\mathbf{w} \right|
+\end{align}
+
+This transformation is simple and has a simple determinant, but it is not very expressive. 
 
 
 \bibliographystyle{plain}
